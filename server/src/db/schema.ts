@@ -4,6 +4,17 @@ import { relations } from 'drizzle-orm';
 
 // Enums
 export const genderEnum = pgEnum('gender', ['male', 'female', 'other']);
+export const userRoleEnum = pgEnum('user_role', ['admin', 'doctor', 'receptionist']);
+
+// Users table
+export const usersTable = pgTable('users', {
+  id: serial('id').primaryKey(),
+  username: text('username').unique().notNull(),
+  password_hash: text('password_hash').notNull(),
+  role: userRoleEnum('role').default('doctor').notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
+});
 
 // Patients table
 export const patientsTable = pgTable('patients', {
@@ -128,6 +139,7 @@ export const invoiceLineItemsRelations = relations(invoiceLineItemsTable, ({ one
 
 // Export all tables for relation queries
 export const tables = {
+  users: usersTable,
   patients: patientsTable,
   prescriptions: prescriptionsTable,
   medications: medicationsTable,

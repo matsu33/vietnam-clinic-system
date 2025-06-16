@@ -1,6 +1,37 @@
 
 import { z } from 'zod';
 
+// User role schema
+export const userRoleSchema = z.enum(['admin', 'doctor', 'receptionist']);
+
+// User schema (excluding password_hash)
+export const userSchema = z.object({
+  id: z.number(),
+  username: z.string(),
+  role: userRoleSchema,
+  created_at: z.coerce.date(),
+  updated_at: z.coerce.date(),
+});
+
+export type User = z.infer<typeof userSchema>;
+
+// Login input schema
+export const loginInputSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+});
+
+export type LoginInput = z.infer<typeof loginInputSchema>;
+
+// Register input schema
+export const registerInputSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(6),
+  role: userRoleSchema.default('doctor'),
+});
+
+export type RegisterInput = z.infer<typeof registerInputSchema>;
+
 // Patient schema
 export const patientSchema = z.object({
   id: z.number(),
@@ -81,7 +112,7 @@ export const prescriptionSchema = z.object({
 
 export type Prescription = z.infer<typeof prescriptionSchema>;
 
-// Input schema for creating prescriptions
+// Input schema for creating prescriptions (patient details auto-populated from patient_id)
 export const createPrescriptionInputSchema = z.object({
   patient_id: z.number(),
   diagnosis: z.string().min(1),
@@ -146,7 +177,7 @@ export const invoiceSchema = z.object({
 
 export type Invoice = z.infer<typeof invoiceSchema>;
 
-// Input schema for creating invoices
+// Input schema for creating invoices (buyer details auto-populated from patient_id if provided)
 export const createInvoiceInputSchema = z.object({
   invoice_code: z.string().min(1),
   patient_id: z.number().nullable(),
@@ -154,8 +185,9 @@ export const createInvoiceInputSchema = z.object({
   seller_tax_id: z.string().min(1),
   seller_address: z.string().min(1),
   seller_phone: z.string().min(1),
-  buyer_full_name: z.string().min(1),
-  buyer_address: z.string().nullable(),
+  // buyer_full_name and buyer_address will be auto-populated from patient if patient_id provided
+  buyer_full_name: z.string().min(1).optional(), // Optional for manual override
+  buyer_address: z.string().nullable().optional(), // Optional for manual override
   buyer_tax_code: z.string().nullable(),
   payment_method: z.string().min(1),
   digital_signature: z.string().nullable(),

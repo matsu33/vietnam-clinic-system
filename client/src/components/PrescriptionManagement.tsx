@@ -1,4 +1,3 @@
-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,6 +34,7 @@ export function PrescriptionManagement() {
   const [selectedPrescription, setSelectedPrescription] = useState<PrescriptionWithMedications | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<CreatePrescriptionInput>({
     patient_id: 0,
@@ -60,15 +60,25 @@ export function PrescriptionManagement() {
 
   const loadPatients = useCallback(async () => {
     try {
+      setError(null);
       const result = await trpc.getPatients.query();
       setPatients(result);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to load patients:', error);
+      if (error && typeof error === 'object' && 'data' in error && 
+          typeof (error as { data?: { code?: string } }).data === 'object' &&
+          (error as { data: { code?: string } }).data?.code === 'UNAUTHORIZED') {
+        // Auth will be handled at the App level
+        window.location.reload();
+      } else {
+        setError('Không thể tải danh sách bệnh nhân');
+      }
     }
   }, []);
 
   const loadPrescriptionsForPatient = useCallback(async (patientId: number) => {
     try {
+      setError(null);
       const prescriptionList = await trpc.getPrescriptionsByPatientId.query({ patient_id: patientId });
       const prescriptionsWithMeds = await Promise.all(
         prescriptionList.map(async (prescription) => {
@@ -77,8 +87,16 @@ export function PrescriptionManagement() {
         })
       );
       setPrescriptions(prescriptionsWithMeds.filter((p): p is PrescriptionWithMedications => p !== null));
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to load prescriptions:', error);
+      if (error && typeof error === 'object' && 'data' in error && 
+          typeof (error as { data?: { code?: string } }).data === 'object' &&
+          (error as { data: { code?: string } }).data?.code === 'UNAUTHORIZED') {
+        // Auth will be handled at the App level
+        window.location.reload();
+      } else {
+        setError('Không thể tải danh sách đơn thuốc');
+      }
     }
   }, []);
 
@@ -99,6 +117,7 @@ export function PrescriptionManagement() {
     if (!selectedPatientId) return;
     
     setIsLoading(true);
+    setError(null);
     try {
       const prescriptionData = {
         ...formData,
@@ -131,8 +150,16 @@ export function PrescriptionManagement() {
         }]
       });
       setIsCreateDialogOpen(false);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to create prescription:', error);
+      if (error && typeof error === 'object' && 'data' in error && 
+          typeof (error as { data?: { code?: string } }).data === 'object' &&
+          (error as { data: { code?: string } }).data?.code === 'UNAUTHORIZED') {
+        // Auth will be handled at the App level
+        window.location.reload();
+      } else {
+        setError('Không thể tạo đơn thuốc');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -205,6 +232,13 @@ export function PrescriptionManagement() {
 
   return (
     <div className="space-y-6">
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
+
       {/* Patient Selection */}
       <Card>
         <CardHeader>
@@ -265,6 +299,246 @@ export function PrescriptionManagement() {
                       Tạo đơn thuốc
                     </Button>
                   </DialogTrigger>
+                  <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Tạo đơn thuốc mới</DialogTitle>
+                      <DialogDescription>
+                        Tạo đơn thuốc cho bệnh nhân: {selectedPatient?.full_name}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleCreatePrescription}>
+                      <div className="grid gap-6 py-4">
+                        {/* Doctor and Clinic Information */}
+                        <div className="space-y-4">
+                          <h3 className="text-lg font-semibold flex items-center gap-2">
+                            <Stethoscope className="h-5 w-5" />
+                            Thông tin bác sĩ và phòng khám
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                              <Label htmlFor="doctor_name">Tên bác sĩ *</Label>
+                              <Input
+                                id="doctor_name"
+                                value={formData.doctor_name}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                  setFormData((prev: CreatePrescriptionInput) => ({ ...prev, doctor_name: e.target.value }))
+                                }
+                                required
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor="doctor_qualification">Bằng cấp/Chuyên khoa *</Label>
+                              <Input
+                                id="doctor_qualification"
+                                value={formData.doctor_qualification}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                  setFormData((prev: CreatePrescriptionInput) => ({ ...prev, doctor_qualification: e.target.value }))
+                                }
+                                required
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor="clinic_name">Tên phòng khám *</Label>
+                              <Input
+                                id="clinic_name"
+                                value={formData.clinic_name}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                  setFormData((prev: CreatePrescriptionInput) => ({ ...prev, clinic_name: e.target.value }))
+                                }
+                                required
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor="clinic_code">Mã phòng khám *</Label>
+                              <Input
+                                id="clinic_code"
+                                value={formData.clinic_code}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                  setFormData((prev: CreatePrescriptionInput) => ({ ...prev, clinic_code: e.target.value }))
+                                }
+                                required
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        {/* Diagnosis */}
+                        <div className="space-y-4">
+                          <h3 className="text-lg font-semibold">Chẩn đoán</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                              <Label htmlFor="diagnosis">Chẩn đoán *</Label>
+                              <Input
+                                id="diagnosis"
+                                value={formData.diagnosis}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                  setFormData((prev: CreatePrescriptionInput) => ({ ...prev, diagnosis: e.target.value }))
+                                }
+                                required
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor="icd_10_code">Mã ICD-10</Label>
+                              <Input
+                                id="icd_10_code"
+                                value={formData.icd_10_code || ''}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                  setFormData((prev: CreatePrescriptionInput) => ({ ...prev, icd_10_code: e.target.value || null }))
+                                }
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        {/* Medications */}
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold flex items-center gap-2">
+                              <Pill className="h-5 w-5" />
+                              Danh sách thuốc
+                            </h3>
+                            <Button type="button" variant="outline" onClick={addMedication}>
+                              <Plus className="h-4 w-4 mr-2" />
+                              Thêm thuốc
+                            </Button>
+                          </div>
+
+                          {formData.medications.map((medication, index) => (
+                            <Card key={index} className="p-4">
+                              <div className="flex items-center justify-between mb-4">
+                                <h4 className="font-semibold">Thuốc #{index + 1}</h4>
+                                {formData.medications.length > 1 && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => removeMedication(index)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="grid gap-2">
+                                  <Label>Tên thuốc *</Label>
+                                  <Input
+                                    value={medication.medicine_name}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      updateMedication(index, 'medicine_name', e.target.value)
+                                    }
+                                    required
+                                  />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label>Hàm lượng *</Label>
+                                  <Input
+                                    value={medication.strength}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      updateMedication(index, 'strength', e.target.value)
+                                    }
+                                    placeholder="VD: 500mg"
+                                    required
+                                  />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label>Dạng bào chế *</Label>
+                                  <Input
+                                    value={medication.dosage_form}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      updateMedication(index, 'dosage_form', e.target.value)
+                                    }
+                                    placeholder="VD: Viên nén"
+                                    required
+                                  />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label>Liều dùng *</Label>
+                                  <Input
+                                    value={medication.dosage}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      updateMedication(index, 'dosage', e.target.value)
+                                    }
+                                    placeholder="VD: 1 viên"
+                                    required
+                                  />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label>Tần suất *</Label>
+                                  <Input
+                                    value={medication.frequency}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      updateMedication(index, 'frequency', e.target.value)
+                                    }
+                                    placeholder="VD: 2 lần/ngày"
+                                    required
+                                  />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label>Thời gian dùng *</Label>
+                                  <Input
+                                    value={medication.duration}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      updateMedication(index, 'duration', e.target.value)
+                                    }
+                                    placeholder="VD: 7 ngày"
+                                    required
+                                  />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label>Số lượng *</Label>
+                                  <Input
+                                    value={medication.quantity}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      updateMedication(index, 'quantity', e.target.value)
+                                    }
+                                    placeholder="VD: 14 viên"
+                                    required
+                                  />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label>Cách dùng *</Label>
+                                  <Input
+                                    value={medication.instruction}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      updateMedication(index, 'instruction', e.target.value)
+                                    }
+                                    placeholder="VD: Uống sau ăn"
+                                    required
+                                  />
+                                </div>
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+
+                        <Separator />
+
+                        {/* Additional Notes */}
+                        <div className="grid gap-2">
+                          <Label htmlFor="additional_notes">Ghi chú thêm</Label>
+                          <Textarea
+                            id="additional_notes"
+                            value={formData.additional_notes || ''}
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                              setFormData((prev: CreatePrescriptionInput) => ({ ...prev, additional_notes: e.target.value || null }))
+                            }
+                            rows={3}
+                          />
+                        </div>
+                      </div>
+                      
+                      <DialogFooter>
+                        <Button type="submit" disabled={isLoading}>
+                          {isLoading ? 'Đang tạo...' : 'Tạo đơn thuốc'}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
                 </Dialog>
               </div>
             </div>
@@ -332,248 +606,6 @@ export function PrescriptionManagement() {
           </CardContent>
         </Card>
       )}
-
-      {/* Create Prescription Dialog */}
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Tạo đơn thuốc mới</DialogTitle>
-          <DialogDescription>
-            Tạo đơn thuốc cho bệnh nhân: {selectedPatient?.full_name}
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleCreatePrescription}>
-          <div className="grid gap-6 py-4">
-            {/* Doctor and Clinic Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Stethoscope className="h-5 w-5" />
-                Thông tin bác sĩ và phòng khám
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="doctor_name">Tên bác sĩ *</Label>
-                  <Input
-                    id="doctor_name"
-                    value={formData.doctor_name}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setFormData((prev: CreatePrescriptionInput) => ({ ...prev, doctor_name: e.target.value }))
-                    }
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="doctor_qualification">Bằng cấp/Chuyên khoa *</Label>
-                  <Input
-                    id="doctor_qualification"
-                    value={formData.doctor_qualification}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setFormData((prev: CreatePrescriptionInput) => ({ ...prev, doctor_qualification: e.target.value }))
-                    }
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="clinic_name">Tên phòng khám *</Label>
-                  <Input
-                    id="clinic_name"
-                    value={formData.clinic_name}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setFormData((prev: CreatePrescriptionInput) => ({ ...prev, clinic_name: e.target.value }))
-                    }
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="clinic_code">Mã phòng khám *</Label>
-                  <Input
-                    id="clinic_code"
-                    value={formData.clinic_code}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setFormData((prev: CreatePrescriptionInput) => ({ ...prev, clinic_code: e.target.value }))
-                    }
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Diagnosis */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Chẩn đoán</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="diagnosis">Chẩn đoán *</Label>
-                  <Input
-                    id="diagnosis"
-                    value={formData.diagnosis}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setFormData((prev: CreatePrescriptionInput) => ({ ...prev, diagnosis: e.target.value }))
-                    }
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="icd_10_code">Mã ICD-10</Label>
-                  <Input
-                    id="icd_10_code"
-                    value={formData.icd_10_code || ''}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setFormData((prev: CreatePrescriptionInput) => ({ ...prev, icd_10_code: e.target.value || null }))
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Medications */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Pill className="h-5 w-5" />
-                  Danh sách thuốc
-                </h3>
-                <Button type="button" variant="outline" onClick={addMedication}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Thêm thuốc
-                </Button>
-              </div>
-
-              {formData.medications.map((medication, index) => (
-                <Card key={index} className="p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-semibold">Thuốc #{index + 1}</h4>
-                    {formData.medications.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeMedication(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="grid gap-2">
-                      <Label>Tên thuốc *</Label>
-                      <Input
-                        value={medication.medicine_name}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          updateMedication(index, 'medicine_name', e.target.value)
-                        }
-                        required
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Hàm lượng *</Label>
-                      <Input
-                        value={medication.strength}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          updateMedication(index, 'strength', e.target.value)
-                        }
-                        placeholder="VD: 500mg"
-                        required
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Dạng bào chế *</Label>
-                      <Input
-                        value={medication.dosage_form}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          updateMedication(index, 'dosage_form', e.target.value)
-                        }
-                        placeholder="VD: Viên nén"
-                        required
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Liều dùng *</Label>
-                      <Input
-                        value={medication.dosage}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          updateMedication(index, 'dosage', e.target.value)
-                        }
-                        placeholder="VD: 1 viên"
-                        required
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Tần suất *</Label>
-                      <Input
-                        value={medication.frequency}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          updateMedication(index, 'frequency', e.target.value)
-                        }
-                        placeholder="VD: 2 lần/ngày"
-                        required
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Thời gian dùng *</Label>
-                      <Input
-                        value={medication.duration}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          updateMedication(index, 'duration', e.target.value)
-                        }
-                        placeholder="VD: 7 ngày"
-                        required
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Số lượng *</Label>
-                      <Input
-                        value={medication.quantity}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          updateMedication(index, 'quantity', e.target.value)
-                        }
-                        placeholder="VD: 14 viên"
-                        required
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>Cách dùng *</Label>
-                      <Input
-                        value={medication.instruction}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          updateMedication(index, 'instruction', e.target.value)
-                        }
-                        placeholder="VD: Uống sau ăn"
-                        required
-                      />
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-
-            <Separator />
-
-            {/* Additional Notes */}
-            <div className="grid gap-2">
-              <Label htmlFor="additional_notes">Ghi chú thêm</Label>
-              <Textarea
-                id="additional_notes"
-                value={formData.additional_notes || ''}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                  setFormData((prev: CreatePrescriptionInput) => ({ ...prev, additional_notes: e.target.value || null }))
-                }
-                rows={3}
-              />
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Đang tạo...' : 'Tạo đơn thuốc'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
 
       {/* View Prescription Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
