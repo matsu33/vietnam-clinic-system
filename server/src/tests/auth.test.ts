@@ -48,7 +48,7 @@ describe('Authentication', () => {
       expect(users[0].password_hash.length).toBeGreaterThan(0);
     });
 
-    it('should prevent registration when users already exist', async () => {
+    it('should allow registration of multiple users', async () => {
       // Create first user
       await register({
         username: 'admin',
@@ -56,14 +56,17 @@ describe('Authentication', () => {
         role: 'admin'
       });
 
-      // Try to create another user
+      // Create another user - should now be allowed
       const input: RegisterInput = {
         username: 'user2',
         password: 'password123',
         role: 'doctor'
       };
 
-      expect(register(input)).rejects.toThrow(/Registration is disabled/);
+      const result = await register(input);
+      expect(result.username).toEqual('user2');
+      expect(result.role).toEqual('doctor');
+      expect(result.id).toBeDefined();
     });
 
     it('should handle username uniqueness correctly', async () => {

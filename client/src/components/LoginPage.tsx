@@ -6,12 +6,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from './AuthContext';
 
 export function LoginPage() {
-  const { login, registerAdmin } = useAuth();
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showAdminRegister, setShowAdminRegister] = useState(true);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,24 +21,6 @@ export function LoginPage() {
       await login(username, password);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Login failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRegisterAdmin = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      await registerAdmin('admin', 'admin');
-      setError(null);
-      setShowAdminRegister(false);
-      setUsername('admin');
-      setPassword('admin');
-      alert('Admin user created successfully! You can now login with username: admin, password: admin');
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Admin registration failed');
     } finally {
       setIsLoading(false);
     }
@@ -101,26 +82,11 @@ export function LoginPage() {
             </Button>
           </form>
 
-          {showAdminRegister && (
-            <div className="pt-4 border-t border-gray-200">
-              <p className="text-sm text-gray-600 mb-3 text-center">
-                First time setup? Create admin account:
-              </p>
-              <Button 
-                onClick={handleRegisterAdmin}
-                variant="outline"
-                className="w-full border-green-200 text-green-700 hover:bg-green-50"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Creating Admin...' : '👤 Create Admin Account (admin/admin)'}
-              </Button>
-            </div>
-          )}
-
           <div className="text-xs text-gray-500 text-center pt-4 border-t border-gray-100">
             <p>💊 Prescription Management</p>
             <p>🧾 Electronic Invoicing</p>
             <p>👥 Patient Records</p>
+            <p className="mt-2 text-blue-600">Default login: admin/admin</p>
           </div>
         </CardContent>
       </Card>

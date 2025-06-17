@@ -156,16 +156,25 @@ const appRouter = router({
 export type AppRouter = typeof appRouter;
 
 async function start() {
-  const port = process.env['SERVER_PORT'] || 2022;
-  const server = createHTTPServer({
-    middleware: (req, res, next) => {
-      cors()(req, res, next);
-    },
-    router: appRouter,
-    createContext: ({ req, res }) => createContext({ req }),
-  });
-  server.listen(port);
-  console.log(`Medical Software TRPC server listening at port: ${port}`);
+  try {
+    // Seed the admin user on startup
+    const { seedAdmin } = await import('./handlers/seed_admin');
+    await seedAdmin();
+    
+    const port = process.env['SERVER_PORT'] || 2022;
+    const server = createHTTPServer({
+      middleware: (req, res, next) => {
+        cors()(req, res, next);
+      },
+      router: appRouter,
+      createContext: ({ req, res }) => createContext({ req }),
+    });
+    server.listen(port);
+    console.log(`🏥 Medical Software TRPC server listening at port: ${port}`);
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
 }
 
 start();

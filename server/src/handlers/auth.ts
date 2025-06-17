@@ -63,16 +63,8 @@ export const login = async (input: LoginInput): Promise<{ token: string; user: U
 
 export const register = async (input: RegisterInput): Promise<User> => {
   try {
-    // Check if any users exist (for first admin creation)
-    const existingUsers = await db.select()
-      .from(usersTable)
-      .limit(1)
-      .execute();
-
-    // If users exist and we're not creating the first admin, throw error
-    if (existingUsers.length > 0) {
-      throw new Error('Registration is disabled. Please contact an administrator.');
-    }
+    // NOTE: This endpoint should ideally be protected or managed by an admin interface in production
+    // Currently allows open registration for development purposes
 
     // Check if username already exists
     const existingUser = await db.select()
